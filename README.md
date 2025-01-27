@@ -1,5 +1,5 @@
 # VK Downloader
-[Инструкция и описание на русском языке](https://github.com/desuex/vk-downloader/README_RU.md)
+[Инструкция и описание на русском языке](https://github.com/desuex/vk-downloader/blob/main/README_RU.md)
 
 A set of Python scripts to extract and download data from a VK archive without requiring any authentication data or API tokens. These scripts process locally downloaded HTML files from your exported VK archive.
 
