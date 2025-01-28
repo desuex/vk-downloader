@@ -17,9 +17,14 @@ def read_file_with_encoding(file_path):
     with open(file_path, "rb") as f:
         raw_data = f.read()
         result = detect(raw_data)
-        encoding = result["encoding"] if result["encoding"] else "utf-8"
-    return raw_data.decode(encoding, errors="replace")
+        encoding = result["encoding"]
 
+        # Limit to UTF-8 and Windows-1251
+        if encoding and encoding.lower() in ["utf-8", "windows-1251"]:
+            return raw_data.decode(encoding, errors="replace"), encoding
+        else:
+            # Fallback to Windows-1251 if encoding is unrecognized or unsupported
+            return raw_data.decode("windows-1251", errors="replace"), "windows-1251"
 
 def extract_contact_name(soup, chat_dir):
     """Extract the contact's name from the HTML soup and add UID if "DELETED"."""
@@ -90,7 +95,7 @@ def download_attachment(url, save_path, allowed_mime_types=None):
 
     try:
         response = requests.get(url, headers=HEADERS, stream=True, timeout=10)
-        if response.status_code >= 400 and response.status_code < 500:
+        if 400 <= response.status_code < 500:
             print(f"Skipping {url}: HTTP {response.status_code} - Client error, will not retry.")
             return False
 
@@ -146,7 +151,7 @@ def process_chat(chat_dir, download_dir, force):
     if not os.path.exists(first_file):
         return
 
-    soup = BeautifulSoup(read_file_with_encoding(first_file), "html.parser")
+    soup = BeautifulSoup(read_file_with_encoding(first_file)[0], "html.parser")
     contact_name = extract_contact_name(soup, chat_dir)
     sanitized_name = sanitize_filename(contact_name)
 
@@ -158,7 +163,7 @@ def process_chat(chat_dir, download_dir, force):
     for filename in os.listdir(chat_dir):
         if filename.startswith("messages") and filename.endswith(".html"):
             file_path = os.path.join(chat_dir, filename)
-            soup = BeautifulSoup(read_file_with_encoding(file_path), "html.parser")
+            soup = BeautifulSoup(read_file_with_encoding(file_path)[0], "html.parser")
             attachments = extract_attachments(soup)
 
             # Download all attachments
