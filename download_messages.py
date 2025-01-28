@@ -20,6 +20,7 @@ def read_file_with_encoding(file_path):
         encoding = result["encoding"] if result["encoding"] else "utf-8"
     return raw_data.decode(encoding, errors="replace")
 
+
 def extract_contact_name(soup, chat_dir):
     """Extract the contact's name from the HTML soup and add UID if "DELETED"."""
     crumbs = soup.select_one(".page_block_header_inner")
@@ -56,7 +57,7 @@ def parse_date_ru(date_text):
 
 def extract_attachments(soup):
     """Extract attachments and their corresponding dates from the HTML soup."""
-    attachments = []
+    attachments = set()
     for message in soup.select(".message, .item"):
         header = message.select_one(".message__header")
         if header:
@@ -78,8 +79,9 @@ def extract_attachments(soup):
                 # Skip non-image links
                 if not re.search(r"\.(jpe?g|png|gif)(\?.*)?$", url, re.IGNORECASE):
                     continue
-                attachments.append((url, formatted_date))
-    return attachments
+                attachments.add((url, formatted_date))
+    return list(attachments)
+
 
 def download_attachment(url, save_path, allowed_mime_types=None):
     """Download an attachment from a URL with MIME type validation and save it to the specified path."""
@@ -115,24 +117,28 @@ def download_attachment(url, save_path, allowed_mime_types=None):
         print(f"Failed to download {url}: {e}")
         return False
 
+
 def sanitize_filename(name):
     """Sanitize the filename to make it valid for all file systems."""
     name = re.sub(r'[<>:"/\\|?*]', '_', name)  # Replace invalid characters
     name = re.sub(r'\.+$', '', name)  # Remove trailing dots
     return name[:255]  # Limit the length to 255 characters
 
+
 def download_with_retries(url, save_path, retries=3, delay=5, allowed_mime_types=None, force=False):
     """Download a file with retries if the initial attempt fails."""
     if not force and os.path.exists(save_path):
         print(f"File already exists, skipping: {save_path}")
-        return
+        return True
 
     for attempt in range(retries):
         if download_attachment(url, save_path, allowed_mime_types=allowed_mime_types):
-            return  # Download succeeded
+            return True  # Download succeeded
         print(f"Attempt {attempt + 1} failed for {url}. Retrying...")
         time.sleep(delay)
     print(f"Failed to download {url} after {retries} attempts.")
+    return False
+
 
 def process_chat(chat_dir, download_dir, force):
     """Process all paginated message files in a chat directory."""
@@ -159,13 +165,17 @@ def process_chat(chat_dir, download_dir, force):
             for url, date in attachments:
                 file_name = sanitize_filename(f"{date}.jpg")  # Only sanitize the filename
                 save_path = os.path.join(contact_dir, file_name)  # Keep the directory structure intact
-                download_with_retries(url, save_path, retries=3, delay=5, allowed_mime_types=['image/jpeg', 'image/png'], force=force)
+                if download_with_retries(url, save_path, retries=3, delay=5,
+                                         allowed_mime_types=['image/jpeg', 'image/png'], force=force):
+                    print(f"File is processed successfully: {save_path}")
+
 
 def main():
     """Main function to process all chat directories."""
     parser = argparse.ArgumentParser(description="Download VK message attachments.")
     parser.add_argument("--root-dir", type=str, required=True, help="Path to the root directory of VK messages.")
-    parser.add_argument("--download-dir", type=str, required=True, help="Path to the directory where attachments will be downloaded.")
+    parser.add_argument("--download-dir", type=str, required=True,
+                        help="Path to the directory where attachments will be downloaded.")
     parser.add_argument("--force", action="store_true", help="Force re-download of existing files.")
     args = parser.parse_args()
 
@@ -181,6 +191,7 @@ def main():
     for chat_dir in chat_dirs:
         print(f"Processing chat: {chat_dir}")
         process_chat(chat_dir, download_dir, force=args.force)
+
 
 if __name__ == "__main__":
     main()
