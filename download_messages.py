@@ -12,7 +12,6 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
 }
 
-# Function to read a file with detected encoding
 def read_file_with_encoding(file_path):
     """Read a file with automatic encoding detection."""
     with open(file_path, "rb") as f:
@@ -21,11 +20,14 @@ def read_file_with_encoding(file_path):
         encoding = result["encoding"] if result["encoding"] else "utf-8"
     return raw_data.decode(encoding, errors="replace")
 
-def extract_contact_name(soup):
-    """Extract the contact's name from the HTML soup."""
+def extract_contact_name(soup, chat_dir):
+    """Extract the contact's name from the HTML soup and add UID if "DELETED"."""
     crumbs = soup.select_one(".page_block_header_inner")
     if crumbs:
         contact_name = crumbs.find_all("div", class_="ui_crumb")[-1].text.strip()
+        if contact_name == "DELETED":
+            uid = os.path.basename(chat_dir)  # Get the folder name as UID
+            contact_name = f"DELETED_{uid}"
         return contact_name
     return "Unknown Contact"
 
@@ -114,7 +116,7 @@ def process_chat(chat_dir, download_dir, force):
         return
 
     soup = BeautifulSoup(read_file_with_encoding(first_file), "html.parser")
-    contact_name = extract_contact_name(soup)
+    contact_name = extract_contact_name(soup, chat_dir)
     sanitized_name = sanitize_filename(contact_name)
 
     # Create a directory for the contact

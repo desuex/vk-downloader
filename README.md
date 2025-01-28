@@ -101,10 +101,10 @@ python download_albums.py --root-dir "./VK Archive/photos/photo-albums" --downlo
 - Python 3.9+
 - Dependencies listed in `requirements.txt`:
   ```plaintext
-  requests~=2.32.3
-  bs4~=4.12.3
-  beautifulsoup4~=4.12.3
-  charset-normalizer~=3.3.2
+  requests
+  bs4
+  beautifulsoup4
+  charset-normalizer
   ```
 
 

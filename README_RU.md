@@ -79,10 +79,10 @@ python download_albums.py --root-dir <ПУТЬ_К_АЛЬБОМАМ> --download-d
 - Python 3.9+
 - Зависимости из `requirements.txt`:
   ```plaintext
-  requests~=2.32.3
-  bs4~=4.12.3
-  beautifulsoup4~=4.12.3
-  charset-normalizer~=3.3.2
+  requests
+  bs4
+  beautifulsoup4
+  charset-normalizer
   ```
 
 ---

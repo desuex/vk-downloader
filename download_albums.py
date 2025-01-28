@@ -5,19 +5,33 @@ from bs4 import BeautifulSoup
 import time
 import argparse
 
-# Custom headers to mimic a browser
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
 }
 
-# Function to sanitize filenames
+
+def read_file_with_encoding(file_path):
+    try:
+        with open(file_path, "rb") as file:
+            raw_data = file.read()
+            # First, try UTF-8
+            try:
+                return raw_data.decode("utf-8")
+            except UnicodeDecodeError:
+                # Fallback to win-1251 for Russian
+                return raw_data.decode("windows-1251", errors="replace")
+    except Exception as e:
+        print(f"Failed to read {file_path}: {e}")
+        return None
+
+
 def sanitize_filename(name):
     """Sanitize a filename to make it valid for all file systems."""
     name = re.sub(r'[<>:"/\\|?*]', '_', name)  # Replace invalid characters
     name = re.sub(r'\.+$', '', name)  # Remove trailing dots
     return name[:255]  # Limit the length to 255 characters
 
-# Extract album name from HTML soup
+
 def extract_album_name(soup):
     """Extract album name from the HTML soup."""
     crumbs = soup.select_one(".page_block_header_inner")
@@ -26,7 +40,7 @@ def extract_album_name(soup):
         return sanitize_filename(album_name)
     return "Unknown Album"
 
-# Extract images from HTML soup
+
 def extract_images(soup):
     """Extract image URLs and alt names from the HTML soup."""
     images = []
@@ -37,7 +51,7 @@ def extract_images(soup):
             images.append((src, alt))
     return images
 
-# Download an image with retry logic
+
 def download_image(url, save_path, retries=3, delay=5):
     """Download an image from a URL with retry logic."""
     for attempt in range(retries):
@@ -65,15 +79,14 @@ def download_image(url, save_path, retries=3, delay=5):
     print(f"Failed to download {url} after {retries} attempts.")
     return False
 
-# Process a single album HTML file
+
 def process_album(html_file, download_dir):
     """Process a single album HTML file."""
-    try:
-        with open(html_file, "r", encoding="utf-8") as file:
-            soup = BeautifulSoup(file, "html.parser")
-    except Exception as e:
-        print(f"Failed to read {html_file}: {e}")
+    content = read_file_with_encoding(html_file)
+    if content is None:
         return
+
+    soup = BeautifulSoup(content, "html.parser")
 
     album_name = extract_album_name(soup)
     images = extract_images(soup)
@@ -89,12 +102,14 @@ def process_album(html_file, download_dir):
         save_path = os.path.join(album_dir, file_name)
         download_image(src, save_path)
 
-# Main function
+
 def main():
     """Main function to scan and process all album HTML files."""
     parser = argparse.ArgumentParser(description="Download VK album images.")
-    parser.add_argument("--root-dir", type=str, required=True, help="Path to the root directory of VK albums.")
-    parser.add_argument("--download-dir", type=str, required=True, help="Path to the directory where images will be downloaded.")
+    parser.add_argument("--root-dir", type=str, required=True,
+                        help="Path to the root directory of VK albums.")
+    parser.add_argument("--download-dir", type=str, required=True,
+                        help="Path to the directory where images will be downloaded.")
     args = parser.parse_args()
 
     root_dir = args.root_dir
@@ -109,6 +124,7 @@ def main():
     for html_file in html_files:
         print(f"Processing album: {html_file}")
         process_album(html_file, download_dir)
+
 
 if __name__ == "__main__":
     main()
