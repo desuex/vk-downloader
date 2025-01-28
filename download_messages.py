@@ -31,29 +31,54 @@ def extract_contact_name(soup, chat_dir):
         return contact_name
     return "Unknown Contact"
 
+
+def parse_date_en(date_text):
+    """Parse English date format."""
+    try:
+        return datetime.strptime(date_text, "%d %b %Y at %I:%M:%S %p")
+    except ValueError:
+        return None
+
+
+def parse_date_ru(date_text):
+    """Parse Russian date format."""
+    try:
+        months = {
+            "янв": "Jan", "фев": "Feb", "мар": "Mar", "апр": "Apr", "мая": "May", "июн": "Jun",
+            "июл": "Jul", "авг": "Aug", "сен": "Sep", "окт": "Oct", "ноя": "Nov", "дек": "Dec"
+        }
+        for ru, en in months.items():
+            date_text = date_text.replace(ru, en)
+        return datetime.strptime(date_text, "%d %b %Y в %H:%M:%S")
+    except ValueError:
+        return None
+
+
 def extract_attachments(soup):
     """Extract attachments and their corresponding dates from the HTML soup."""
     attachments = []
-    for message in soup.select(".message"):
+    for message in soup.select(".message, .item"):
         header = message.select_one(".message__header")
         if header:
-            date_match = re.search(r"at (.+) on (.+)", header.text)
-            if date_match:
-                time_part = date_match.group(1).strip()
-                date_part = date_match.group(2).strip()
-                try:
-                    message_date = datetime.strptime(f"{date_part} {time_part}", "%d %b %Y %I:%M:%S %p")
-                    formatted_date = message_date.strftime("%Y-%m-%d %H:%M:%S")
-                except ValueError:
-                    continue
+            date_text = header.text.strip()
+            # Remove sender's name if present
+            if "," in date_text:
+                date_text = date_text.rsplit(",", 1)[-1].strip()
+            # Remove '(ред.)' if present
+            date_text = re.sub(r"\(ред\.\)", "", date_text).strip()
 
-                attachment_link = message.select_one(".attachment__link")
-                if attachment_link:
-                    url = attachment_link["href"]
-                    # Skip non-image links
-                    if not re.search(r"\.(jpe?g|png|gif)(\?.*)?$", url, re.IGNORECASE):
-                        continue
-                    attachments.append((url, formatted_date))
+            message_date = parse_date_en(date_text) or parse_date_ru(date_text)
+            if not message_date:
+                continue
+
+            formatted_date = message_date.strftime("%Y-%m-%d %H:%M:%S")
+            attachment_link = message.select_one(".attachment__link")
+            if attachment_link:
+                url = attachment_link["href"]
+                # Skip non-image links
+                if not re.search(r"\.(jpe?g|png|gif)(\?.*)?$", url, re.IGNORECASE):
+                    continue
+                attachments.append((url, formatted_date))
     return attachments
 
 def download_attachment(url, save_path, allowed_mime_types=None):
